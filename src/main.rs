@@ -53,16 +53,6 @@ where
         // g_mul_powers_of_alpha = [g, g * a, g * a^2, ..., g * a^(max_degree)], len = max_degree + 1
         let g_mul_powers_of_alpha = g.batch_mul(&powers_of_alpha[0..=max_degree]);
 
-        // TODO: use successors is more elegant?
-        // How to best convert Vec<<E as Pairing>::G1> to Vec<<E as Pairing>::G1Affine>?
-        // use std::iter::successors;
-        // g_mul_powers_of_alpha2 = [g, g * a, g * a^2, ..., g * a^(max_degree)], len = max_degree + 1
-        // let g_mul_powers_of_alpha2 = successors(Some(g), |g| Some(g.mul(&alpha)))
-        //     .take(max_degree + 1)
-        //     .collect::<Vec<<E as Pairing>::G1>>();
-        // let b: Vec<<E as Pairing>::G1Affine> = g_mul_powers_of_alpha2;
-        // assert_eq!(g_mul_powers_of_alpha, g_mul_powers_of_alpha2);
-
         UniversalParams {
             g: g.into(),
             g_mul_powers_of_alpha,
@@ -168,19 +158,25 @@ fn main() {
 mod tests {
     use super::*;
     use ark_std::test_rng;
+    use rand::{self, Rng};
 
     #[test]
     fn test_kzg_verify() {
         let max_degree = 4;
-        let rng = &mut test_rng();
-        let params = KZG_Bls12_381::setup(max_degree, rng);
+        println!("max_degree: {}", max_degree);
 
-        let degree = max_degree;
-        let polynomial = UniPoly381::rand(degree, rng);
+        let test_rng = &mut test_rng();
+        let params = KZG_Bls12_381::setup(max_degree, test_rng);
+
+        let mut rng = rand::thread_rng();
+        let poly_degree = rng.gen_range(0..=max_degree) as usize;
+        println!("poly_degree: {}", poly_degree);
+
+        let polynomial = UniPoly381::rand(poly_degree, test_rng);
         let commitment =
             KZG_Bls12_381::commit(params.g_mul_powers_of_alpha.clone(), polynomial.clone());
 
-        let point: Fr = Fr::rand(rng);
+        let point: Fr = Fr::rand(test_rng);
         let proof = KZG_Bls12_381::open(&params.g_mul_powers_of_alpha, &polynomial, point);
 
         let evaluation = polynomial.evaluate(&point);
